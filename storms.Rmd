@@ -186,6 +186,64 @@ unique(stormData$event.type)
 
 ## Results
 
+We will use ggplot and ggpubr to create exploratory figures.
+
+```{r ggplot.library, results = 'hide'}
+library(ggplot2)
+library(ggpubr)
+```
+
+To investigate the impact of various weather events on human casualties, we summarize fatalities and injuries by sum and mean.
+
+```{r health.summary, cache=TRUE}
+health.summary = stormData %>%
+  group_by(event.type) %>%
+  summarise(total.fatalities = sum(fatalities, na.rm = TRUE),
+            average.fatalities = mean(fatalities, na.rm = TRUE),
+            total.injuries = sum(injuries, na.rm = TRUE),
+            average.injuries = mean(injuries, na.rm = TRUE),
+            total.casualties = sum(fatalities + injuries, na.rm = TRUE),
+            average.casualties = mean(fatalities + injuries, na.rm = TRUE)) %>%
+  mutate(event.type = toupper(event.type))
+```
+
+For easy plotting of the summary data we will create a function that creates a plot of the top entries for a specified variable.
+
+```{r}
+top.x.bar = function(data, x, y, n = 5) {
+  data = arrange(data, desc(data[[y]]))[1:n,]
+  ggplot(data, 
+         aes_string(x = reorder(data[[x]], -data[[y]]), y = y)) +
+    geom_bar(stat = "identity") + 
+    theme_classic() + 
+    theme(axis.text.x = element_text(angle = 50, hjust = 1)) + 
+    xlab(x)
+}
+```
+
+We will now use this function to create plots of our summary statistics.
+
+```{r hist.fatalities}
+tf = top.x.bar(health.summary, "event.type", "total.fatalities")
+af = top.x.bar(health.summary, "event.type", "average.fatalities")
+ti = top.x.bar(health.summary, "event.type", "total.injuries")
+ai = top.x.bar(health.summary, "event.type", "average.injuries")
+tc = top.x.bar(health.summary, "event.type", "total.casualties")
+ac = top.x.bar(health.summary, "event.type", "average.casualties")
+casualties.plot = ggarrange(tf, ti, tc, af, ai, ac) + ggtitle("Most Impactful Event Types on Casualties")
+```
+
+### Most Impactful Event Types on Casualties
+
+```{r show.casualties.plot, echo = FALSE}
+casualties.plot
+```
+
+We can see from this figure that tornadoes count for the most fatalities and injuries in the data set. However, on average tsunamis are the most deadly and hurricanes are the most injurous.
+
+
+
+
 [1]: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 "Storm Data Source"
 [2]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf "Storm Data Documentation"
 [3]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf "Storm Data Faq"
