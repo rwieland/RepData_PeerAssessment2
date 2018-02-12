@@ -1,0 +1,192 @@
+---
+title: "Storm Data"
+author: "Robert Wieland"
+date: "February 11, 2018"
+output: html_document
+---
+## Synopsis
+
+As per the project instruction [page][4]:
+
+> Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.  
+
+> This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+## Data Processing
+
+### The Data Set
+
+As per the project instruction [page][4]:
+
+> The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file directly from the course web site:  
+
+- [Storm Data][1]  
+
+> There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined.  
+
+- National Weather Service [Storm Data Documentation][2] 
+- National Climatic Data Center Storm Events [FAQ][3]  
+
+> The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+
+### Importing the data set into R
+
+First, we create a directory for storing the storm data,
+
+```{r create.data.dir, echo=FALSE}
+if (!dir.exists("data")) {
+  dir.create("data")
+}
+```
+
+then download the data from the course web site.
+
+```{r download.zip.data}
+dataFile = "data/StormData.csv.bz2"
+if (!file.exists(dataFile)) {
+  dataUrl = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+  download.file(dataUrl, dataFile, "auto")
+}
+```
+
+Finally the data is into R using read.csv (Note: bz2 files can be read directly with read.csv())
+
+```{r read.file, cache=TRUE}
+stormData = read.csv(dataFile)
+```
+
+### Characterizing the Data Set
+
+The data set is rather large and has 37 variables.
+
+```{r data.size, cache=TRUE}
+dim(stormData)
+names(stormData)
+```
+
+Since we are only interested in the event type, effects on human health, and property damage, we will select only those variables which are relevant to this study.
+
+```{r subset.storm.data, cache = TRUE}
+stormData = stormData[,c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")]
+```
+
+We will rename each of these variables to have a more descriptive name.
+
+```{r rename.cols}
+names(stormData) = c("event.type", "fatalities", "injuries", "property.damage", "property.damage.exponent", "crop.damage", "crop.damage.exponent")
+```
+
+Let's look at a summary of this subset of the storm data.
+
+```{r summarize.storm.data}
+summary(stormData)
+```
+
+From this summary we can see that we may need to make some alterations to the data set:
+
+1. The variables property.damage and property.damage.exponent as well as crop.damage and crop.damage.exponent should be merged into a single numeric variables
+2. Some event types may need to be renamed to facilitate later analysis (ex: TSTM WIND to THUNDERSTORM WIND)
+
+We will begin by merging the damage values.
+
+### Property and Crop Damage
+
+From the [Storm Data Documentation][1] section 2.7 we know that the exponent values should correspond to "K" for thousands, "M" for millions, and "B" for billions. We can make educated guesses that numbers like 0 and 5 should be interpreted as \math{10^0} and \math{10^5} respectively. However it is not clear how to interpret missing exponent values. Missing values may correspond to events with no damage. Let's look at a summaries of the storm data set with only missing damage exponents.
+
+```{r exponent.compare}
+summary(stormData[stormData$property.damage.exponent == "",])
+summary(stormData[stormData$crop.damage.exponent == "",])
+```
+
+From these summaries it is not clear how each damage value without an exponent value should be interpreted, since those values do not appear to correspond to drops in injuries, fatalities, or damage of the other type (i.e. crop.damage for property.damage and vice versa). Therefore, we will interpret damages with missing exponent values as NA. Next lets look at other values which are not clearly defined
+
+```{r strange.exponenets}
+exps = c("", "k", "K", "m", "M", "b", "B")
+unique(stormData[!(stormData$property.damage.exponent %in% exps), "property.damage.exponent"])
+unique(stormData[!(stormData$crop.damage.exponent %in% exps), "crop.damage.exponent"])
+```
+
+It is not clear how to interpret "-", "+", "?", or "h" so these will also be dropped from the analysis. We will now define a function to convert damage and exponent values into a single damage value.
+
+```{r damage.conversion.function}
+convert.damage = function(damage, exponent) {
+  # numeric damage
+  # character exponent
+  df = data.frame(c(10^3, 10^6, 10^9), row.names = c("k", "m", "b"))
+  if (tolower(exponent) %in% row.names(df))
+    return(damage * df[tolower(exponent),])
+  if (!is.na(as.numeric(exponent))) {
+    return(damage * 10 ^ as.numeric(exponent))
+  return(NA)
+  }
+}
+```
+
+We will use the dplyr library to apply this to the storm data set.
+
+```{r dplyr.library, results='hide'}
+library(dplyr)
+```
+
+We now use the convert.damage function to convert damage and exponent values into single damage values. Also, since we will no longer need the exponent values, we will drop them from our data set.
+
+```{r mutate.damages, cache=TRUE, warning=FALSE}
+stormData = stormData %>%
+  mutate(property.damage = convert.damage(property.damage, property.damage.exponent),
+         crop.damage = convert.damage(crop.damage, crop.damage.exponent)) %>%
+  select(-c(property.damage.exponent, crop.damage.exponent))
+summary(stormData)
+```
+
+We now have damage values which we can use in later analysis.
+
+### Event Types
+
+
+In section 7, the [Storm Data documentation][2] specifies 46 event types which are included in the data set. We've created a vector called officialTypes which contains these events:
+
+```{r official.types, echo=FALSE}
+officialTypes = c("avalanche", "blizzard", "coastal flood", "cold/wind chill", "debris flow", "dense fog", "dense smoke", "drought", "dust devil", "dust storm", "excessive heat", "extreme cold/wind chill", "flash flood", "flood", "freezing fog", "frost/freeze", "funnel cloud", "hail", "heavy rain", "heavy snow", "high surf", "high wind", "hurricane/typhoon", "ice storm", "lakeshore flood", "lake-effect snow", "lightning", "marine hail", "marine high wind", "marine strong wind", "marine thunderstorm wind", "rip current", "seiche", "sleet", "storm tide", "strong wind", "thunderstorm wind", "tornado", "tropical depression", "tropical storm", "tsunami", "volcanic ash", "waterspout", "wildfire", "winter storm", "winter weather")
+```
+
+```{r display.official.types}
+officialTypes
+```
+
+However, whithin the event.type variable there are many more than 46 event types.
+
+```{r raw.event.types, cache=TRUE}
+types = unique(stormData$event.type)
+```
+
+```{r raw.types.head}
+head(types, n = 30)
+```
+
+This appears in part to be due to entries such as "TSTM WIND" which shorten "thunderstorm wind", "THUNDERSTORM WINDS LIGHTNING"  which combine the "thunderstorm wind" and "lightning" types, and "HURRICANE ERIN" which name the specific weather event. Let's see how many exact matches there are. First, we convert event.type to lower case.
+
+```{r to.lower.type}
+stormData$event.type = tolower(stormData$event.type)
+```
+
+Then we check for entries with exact matches.
+
+```{r type.matches}
+matches = stormData$event.type %in% officialTypes
+sum(matches) / length(matches)
+```
+
+It appears that we get about 70% coverage of the original data set with exact matches to the official event types. For the sake of time and simplicity, we will only use those event types with exact matches for this assignment. If we were to delve deeper into this data set, we would need to account for those other 30% that have no exact matches.
+
+```{r subset.stormData.events, cache = TRUE}
+stormData = stormData[matches,]
+dim(stormData)
+unique(stormData$event.type)
+```
+
+## Results
+
+[1]: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 "Storm Data Source"
+[2]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf "Storm Data Documentation"
+[3]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf "Storm Data Faq"
+[4]: https://www.coursera.org/learn/reproducible-research/peer/OMZ37/course-project-2 "Project Instruction Page"
