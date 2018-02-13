@@ -6,17 +6,24 @@ output: html_document
 ---
 ## Synopsis
 
-As per the project instruction [page][4]:
+This project is the second project in the Reproducable Research course on Coursera. The goal of this project is to use tools such as R markdown to produce reproducable research. To do so, we will be analyzing a data set as described per the project [instructions][4] below:
 
 > Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.  
 
 > This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
 
+The goal of the analysis of this data set is to determine:
+
+- Across the United States, which types of events are most harmful with respect to population health
+- Across the United States, which types of events have the greatest economic consequences.
+
+We found that tornadoes are responsible for most fatalities and casualties, while tsunamis and hurricanes were more dangerous per event. Also, floods and droughts are responsible for most economic damages, but hurricanes cause more damage per event.
+
 ## Data Processing
 
 ### The Data Set
 
-As per the project instruction [page][4]:
+The initial data set described as per the project instruction [page][4]:
 
 > The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file directly from the course web site:  
 
@@ -186,6 +193,8 @@ unique(stormData$event.type)
 
 ## Results
 
+### Most Impactful Event Types on Event Casualties
+
 We will use ggplot and ggpubr to create exploratory figures.
 
 ```{r ggplot.library, results = 'hide'}
@@ -209,40 +218,70 @@ health.summary = stormData %>%
 
 For easy plotting of the summary data we will create a function that creates a plot of the top entries for a specified variable.
 
-```{r}
+```{r top.x.bar}
 top.x.bar = function(data, x, y, n = 5) {
   data = arrange(data, desc(data[[y]]))[1:n,]
   ggplot(data, 
          aes_string(x = reorder(data[[x]], -data[[y]]), y = y)) +
     geom_bar(stat = "identity") + 
-    theme_classic() + 
-    theme(axis.text.x = element_text(angle = 50, hjust = 1)) + 
-    xlab(x)
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 50, hjust = 1),
+          plot.margin = margin(2, 2, 2, 2)) +
+    ylab(gsub("\\.", " ", y)) +
+    xlab("")
 }
 ```
 
 We will now use this function to create plots of our summary statistics.
 
-```{r hist.fatalities}
+```{r plot.casualties}
 tf = top.x.bar(health.summary, "event.type", "total.fatalities")
 af = top.x.bar(health.summary, "event.type", "average.fatalities")
 ti = top.x.bar(health.summary, "event.type", "total.injuries")
 ai = top.x.bar(health.summary, "event.type", "average.injuries")
 tc = top.x.bar(health.summary, "event.type", "total.casualties")
 ac = top.x.bar(health.summary, "event.type", "average.casualties")
-casualties.plot = ggarrange(tf, ti, tc, af, ai, ac) + ggtitle("Most Impactful Event Types on Casualties")
-```
+casualties.plot = ggarrange(tf, ti, tc, af, ai, ac)
 
-### Most Impactful Event Types on Casualties
-
-```{r show.casualties.plot, echo = FALSE}
-casualties.plot
+annotate_figure(casualties.plot,
+                top = text_grob("Most Impactful Event Types on Event Casualties", face = "bold", size = 14),
+                fig.lab = "Figure 1", fig.lab.face = "bold")
 ```
 
 We can see from this figure that tornadoes count for the most fatalities and injuries in the data set. However, on average tsunamis are the most deadly and hurricanes are the most injurous.
 
+### Most Impactful Event Types on Event Damages
 
+Now, we do the same thing but with event caused property and crop damages.
 
+```{r damage.summary, cache=TRUE}
+damage.summary = stormData %>%
+  group_by(event.type) %>%
+  summarise(total.damage = sum(property.damage + crop.damage, na.rm = TRUE),
+            ave.damage = mean(property.damage + crop.damage, na.rm = TRUE),
+            total.property.damage = sum(property.damage, na.rm = TRUE),
+            ave.property.damage = mean(property.damage, na.rm = TRUE),
+            total.crop.damage = sum(crop.damage, na.rm = TRUE),
+            ave.crop.damage = mean(crop.damage, na.rm = TRUE)) %>%
+  mutate(event.type = toupper(event.type))
+```
+
+```{r plot.damages}
+tf = top.x.bar(damage.summary, "event.type", "total.damage")
+af = top.x.bar(damage.summary, "event.type", "ave.damage")
+ti = top.x.bar(damage.summary, "event.type", "total.property.damage")
+ai = top.x.bar(damage.summary, "event.type", "ave.property.damage")
+tc = top.x.bar(damage.summary, "event.type", "total.crop.damage")
+ac = top.x.bar(damage.summary, "event.type", "ave.crop.damage")
+casualties.plot = ggarrange(tf, ti, tc, af, ai, ac)
+annotate_figure(casualties.plot,
+                top = text_grob("Most Impactful Event Types on Event Casualties", 
+                                face = "bold", 
+                                size = 14),
+                fig.lab = "Figure 2", fig.lab.face = "bold")
+```
+
+We can see that flods are responsible for the most total damage and property damage, but that drought is causes the most total crop damage. However, per event, hurricanes and typhoons cause more damage to both property and crops.
 
 [1]: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 "Storm Data Source"
 [2]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf "Storm Data Documentation"
