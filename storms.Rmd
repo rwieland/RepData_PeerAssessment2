@@ -6,7 +6,7 @@ output: html_document
 ---
 ## Synopsis
 
-This project is the second project in the Reproducable Research course on Coursera. The goal of this project is to use tools such as R markdown to produce reproducable research. To do so, we will be analyzing a data set as described per the project [instructions][4] below:
+This project is the second project in the Reproducible Research course on Coursera. The goal of this project is to use tools such as R markdown to produce reproducible research. To do so, we will be analyzing a data set as described per the project [instructions][4] below:
 
 > Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.  
 
@@ -160,7 +160,7 @@ officialTypes = c("avalanche", "blizzard", "coastal flood", "cold/wind chill", "
 officialTypes
 ```
 
-However, whithin the event.type variable there are many more than 46 event types.
+However, within the event.type variable there are many more than 46 event types.
 
 ```{r raw.event.types, cache=TRUE}
 types = unique(stormData$event.type)
@@ -248,7 +248,7 @@ annotate_figure(casualties.plot,
                 fig.lab = "Figure 1", fig.lab.face = "bold")
 ```
 
-We can see from this figure that tornadoes count for the most fatalities and injuries in the data set. However, on average tsunamis are the most deadly and hurricanes are the most injurous.
+We can see from this figure that tornadoes count for the most fatalities and injuries in the data set. However, on average tsunamis are the most deadly and hurricanes are the most injurious.
 
 ### Most Impactful Event Types on Event Damages
 
@@ -281,7 +281,7 @@ annotate_figure(casualties.plot,
                 fig.lab = "Figure 2", fig.lab.face = "bold")
 ```
 
-We can see that flods are responsible for the most total damage and property damage, but that drought is causes the most total crop damage. However, per event, hurricanes and typhoons cause more damage to both property and crops.
+We can see that floods are responsible for the most total damage and property damage, but that drought is causes the most total crop damage. However, per event, hurricanes and typhoons cause more damage to both property and crops.
 
 [1]: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 "Storm Data Source"
 [2]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf "Storm Data Documentation"
